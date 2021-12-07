@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 
-import tensorflow as tf
+#import tensorflow as tf
 import numpy as np
 import pandas as pd
 from math import sqrt
 import matplotlib.pyplot as plt 
+from queue import PriorityQueue
 
-def generate_gridworld(length, width, probability):
-    grid = np.random.choice([0,1], length * width, p = [1 - probability, probability]).reshape(length, width)
-    grid[0][0] = 0
-    grid[-1][-1] = 0
+def generate_gridworld(length, width, probability,start,end):
+    solvable = False
+    while not solvable:
+        grid = np.random.choice([0,1], length * width, p = [1 - probability, probability]).reshape(length, width)
+        grid[0][0] = 0
+        grid[-1][-1] = 0
+        curr_knowledge = generate_knowledge(grid,start,end,revealed = True)
+        solvable = A_star(curr_knowledge, start, end)
     return grid
 
 # Calculates h(x) using one of a range of heuristics
@@ -25,7 +30,7 @@ class Cell:
         self.dim=dim
         self.neighbors=[]
         self.visited=False
-        self.blocked=9999
+        self.blocked=2
         self.c=9999
         self.b=9999
         self.e=9999
@@ -61,7 +66,7 @@ class Cell:
                 b += 1
             if knowledge[y][x].blocked == 0:
                 e += 1
-            if knowledge[y][x].blocked == 9999:
+            if knowledge[y][x].blocked == 2:
                 h += 1
         self.c = c
         self.b = b
@@ -73,17 +78,26 @@ class Cell:
         return False
 
 #generate knowledge embeded with cell class
-def generate_knowledge(grid):
+
+def generate_knowledge(grid,start,end,revealed = False):
     cell_list = []
     rows = len(grid)
     cols = len(grid[0])
+    #calculate initial_prob of each cell
+    g_index = np.where(grid !=1)
+    initial_prob = 1/len(g_index[0])
     for i in range(rows):
         cell_list.append([])
         for j in range(cols):
             cellOBJ = Cell(i,j,rows)
-            #cellOBJ.blocked = grid[i][j]
+            if revealed:
+                cellOBJ.blocked = grid[i][j] 
+            cellOBJ.prob= initial_prob
             cell_list[i].append(cellOBJ)
+    cell_list[start[1]][start[0]].blocked =0
+    cell_list[end[1]][end[0]].blocked =0
     return cell_list
+
 
 #Add (x,y) neighbors which has been visited and h != 0
 def add_visited_neighbors(y,x,knowledge,queue):
@@ -112,7 +126,7 @@ def infering(y,x,knowledge):
                 knowledge[y1][x1].h == 0
                 for neighbor in neighbors:
                     x2, y2 = neighbor
-                    if knowledge[y2][x2].blocked == 9999:
+                    if knowledge[y2][x2].blocked == 2:
                         knowledge[y2][x2].blocked = 0
                         #if a neighbor was updated, then add its visited neigbhors to queue
                         queue = add_visited_neighbors(y2,x2,knowledge,queue)
@@ -120,7 +134,7 @@ def infering(y,x,knowledge):
                 knowledge[y1][x1].h == 0
                 for neighbor in neighbors:
                     x2, y2 = neighbor
-                    if knowledge[y2][x2].blocked == 9999:
+                    if knowledge[y2][x2].blocked == 2:
                         knowledge[y2][x2].blocked = 1
                         #if a neighbor was updated, then add its visited neigbhors to queue
                         queue = add_visited_neighbors(y2,x2,knowledge,queue)
@@ -138,14 +152,14 @@ def A_star(curr_knowledge, start, end):
     visited={start} # it is a set which provide the uniqueness, means it is ensure that not a single cell visit more than onece.
     tiebreaker = 0
 	# Creates a priority queue using a Python set, adding start cell and its distance information
-    pq = set([ (f[start], tiebreaker, start) ])
+    pq = PriorityQueue()
+    pq.put((f[start], tiebreaker, start))
     #count cell being processed
     cell_count = 0
     # A* algorithm, based on assignment instructions
-    while not len(pq) == 0:
+    while not pq.empty():
 		# Remove the node in the priority queue with the smallest f value
-        n = min(pq)
-        pq.remove(n)
+        n = pq.get()
         cell_count += 1
         successors = []
 		# curr_pos is a tuple (x, y) where x represents the column the square is in, and y represents the row
@@ -190,19 +204,20 @@ def A_star(curr_knowledge, start, end):
             parent[successor] = curr_pos
             if successor not in visited:
                 tiebreaker += 1
-                pq.add((g[successor] + h[successor], -tiebreaker, successor))
+                pq.put((g[successor] + h[successor], -tiebreaker, successor))
                 visited.add(successor)
 		# if priority queue is empty at any point, then unsolvable
-        if len(pq) == 0:
+        if pq.empty():
             return False
 
 # Handles processing of Repeated A*, restarting that algorithm if a blocked square is found in the determined shortest path
-def algorithmA(grid, start, end, has_four_way_vision):
+def algorithmA(grid, start, end, data_x, data_y, has_four_way_vision):
     # The assumed state of the gridworld at any point in time. For some questions, the current knowledge is unknown at the start
-    curr_knowledge = generate_knowledge(grid)
+    curr_knowledge = generate_knowledge(grid,start,end)
     # If the grid is considered known to the robot, operate on that known grid
 	# Else, the robot assumes a completely unblocked gridworld and will have to discover it as it moves
     complete_path = [(0,0)]
+    prev_sq = (0,0)
 	# Run A* once on grid as known, returning False if unsolvable
     shortest_path = A_star(curr_knowledge, start, end)
     if not shortest_path:
@@ -214,21 +229,25 @@ def algorithmA(grid, start, end, has_four_way_vision):
         for sq in shortest_path[0]:
             x = sq[0]
             y = sq[1]
+            if sq != prev_sq:
+                data_x = add_data_x(curr_knowledge,data_x)
 			# If blocked, rerun A* and restart loop
             if grid[y][x] == 1:
                 # If the robot can only see squares in its direction of movement, update its current knowledge of the grid to include this blocked square
                 if not has_four_way_vision:
                     curr_knowledge[y][x].blocked = 1
-                shortest_path = A_star(curr_knowledge, prev_sq, end)                
+                shortest_path = A_star(curr_knowledge, prev_sq, end)   
                 if not shortest_path:
                     return False
                 is_broken = True
                 cell_count += shortest_path[1]
+                data_y = add_data_y(prev_sq,sq,data_y)
                 break
 			# If new square unblocked, update curr_knowledge. Loop will restart and move to next square on presumed shortest path
             else:
                 if sq != complete_path[-1]:
                     complete_path.append(sq)
+                curr_knowledge[y][x].blocked = 0
                 # If the robot can see in all compass directions, update squares adjacent to its current position
                 if has_four_way_vision:
                      if x != 0:
@@ -239,13 +258,14 @@ def algorithmA(grid, start, end, has_four_way_vision):
                          curr_knowledge[y - 1][x].blocked = grid[y - 1][x]
                      if y < len(curr_knowledge) - 1:
                          curr_knowledge[y + 1][x].blocked = grid[y + 1][x]
+                data_y = add_data_y(prev_sq,sq,data_y)
             prev_sq = sq
         if not is_broken:
             break
         is_broken = False
-    return [complete_path, cell_count]
+    return [complete_path, cell_count,data_x,data_y]
 
-def inference(grid, start, end, is_expert = False):
+def inference(grid, start, end):
     #generate initial shortest path
     shortest_path = A_star(generate_knowledge(grid), start, end)
     curr_knowledge = generate_knowledge(grid)
@@ -295,16 +315,52 @@ def is_path_blocked(curr_knowledge, shortest_path):
             return True
         else:
             return False           
-    
-"""test 1 try cell class"""
-#PLEASE BE NOTED use knowledge[row][col] to retraive a cell!!!!
-grid = generate_gridworld(101,101,.3)
+
+def add_data_x(curr_knowledge,data_x):
+    dim = len(curr_knowledge)
+    curr_x = []
+    for y in range(dim):
+        for x in range(dim):
+            curr_x.append(curr_knowledge[y][x].blocked)
+    data_x.append(curr_x)
+    return data_x
+
+def add_data_y(prev_sq,sq,data_y):
+    curr_y = "stay"
+    if sq[0] - prev_sq[0] == 1:
+        curr_y = "right"
+    elif sq[0] - prev_sq[0] == -1:
+        curr_y = "left"
+    elif sq[1] - prev_sq[1] == 1:
+        curr_y = "down"
+    elif sq[1] - prev_sq[1] == -1:
+        curr_y = "up"
+    else:
+        return data_y
+    data_y.append(curr_y)
+    return data_y
+
+def generate_dataset():
+    dataset_x = []
+    dataset_y = []
+    start = (0,0)
+    end = (100,100)
+    trial = 0
+    while trial < 1000:
+        grid = generate_gridworld(101, 101, 0.3,start,end)
+        agent2 = algorithmA(grid, start, end, dataset_x, dataset_y, has_four_way_vision = True)
+        trial +=1
+    return dataset_x, dataset_y
+        
+data_agent2 = generate_dataset()
+            
+ 
+"""test dataset"""
 start = (0,0)
-end = (100,100)
-print("Agent 1")
-agent1 = algorithmA(grid, start, end, has_four_way_vision = False)
-print("Agent 2")
-agent2 = algorithmA(grid, start, end, has_four_way_vision = True)
-print("Agent 3")
-agent3 = inference(grid, start, end)
+end = (5,5)
+grid = generate_gridworld(6,6,.3,start,end)
+dataset_x = []
+dataset_y = []
+agent1 = algorithmA(grid, start, end, dataset_x, dataset_y, has_four_way_vision = True)        
+
 
