@@ -6,6 +6,7 @@ import pandas as pd
 from math import sqrt
 import matplotlib.pyplot as plt 
 from queue import PriorityQueue
+import pickle
 
 def generate_gridworld(length, width, probability,start,end):
     solvable = False
@@ -346,14 +347,23 @@ def generate_dataset():
     start = (0,0)
     end = (100,100)
     trial = 0
-    while trial < 1000:
+    while trial < 100:
+        print("running trial {}".format(trial))
         grid = generate_gridworld(101, 101, 0.3,start,end)
         agent2 = algorithmA(grid, start, end, dataset_x, dataset_y, has_four_way_vision = True)
         trial +=1
     return dataset_x, dataset_y
-        
-data_agent2 = generate_dataset()
-            
+
+#export data        
+data_agent2_5 = generate_dataset()
+file = open('data_agent2_5.p', 'wb')
+pickle.dump(data_agent2_5, file)
+file.close()
+
+#import data
+file = open('data_agent2_1.p', 'rb')
+data_agent2_1 = pickle.load(file)
+file.close()          
  
 """test dataset"""
 start = (0,0)
