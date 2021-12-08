@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-#import tensorflow as tf
+import tensorflow as tf
 import numpy as np
 import pandas as pd
 from math import sqrt
@@ -351,16 +351,30 @@ def generate_dataset():
         agent2 = algorithmA(grid, start, end, dataset_x, dataset_y, has_four_way_vision = True)
         trial +=1
     return dataset_x, dataset_y
-        
+         
+# Based on provided example notebook (https://colab.research.google.com/drive/11qqoQfeUiPtYF0feAKxdUHZCEuAnL_4H?usp=sharing)		 
+def generate_dense_NN(dim, layers):
+    # Create an input layer with a number of neurons equal to the number of squares in the gridworld
+    input_layer = tf.keras.layers.Input(shape=((dim**2), 1))
+    # Generate n_layers hidden layers, each with a preset number of neurons and the rectified linear unit activation function
+	# Each layer is bound to the previous layer
+    dense_layer = tf.keras.layers.Dense(units=layers[0], activation=tf.nn.relu)(input_layer)
+    for i in range(len(layers) - 1):
+        dense_layer = tf.keras.layers.Dense(units=layers[i + 1], activation=tf.nn.relu)(dense_layer)
+	# Create the output layer, with four neurons representing the four directions our network cbooses between,
+	# and bind it to the previous layers
+    output_layer = tf.keras.layers.Dense(units=4, activation=None)(dense_layer)
+	# Create the neural network
+    return tf.keras.Model(inputs=input_layer, outputs=output_layer).compile()
+	
+dense_NN = generate_dense_NN(101, (10, 10))
 data_agent2 = generate_dataset()
-            
- 
+print(dense_NN.fit(data_agent2[0], data_agent2[1], epochs=10))
+
 """test dataset"""
-start = (0,0)
-end = (5,5)
-grid = generate_gridworld(6,6,.3,start,end)
-dataset_x = []
-dataset_y = []
-agent1 = algorithmA(grid, start, end, dataset_x, dataset_y, has_four_way_vision = True)        
-
-
+#start = (0,0)
+#end = (5,5)
+#grid = generate_gridworld(6,6,.3,start,end)
+#dataset_x = []
+#dataset_y = []
+#agent1 = algorithmA(grid, start, end, dataset_x, dataset_y, has_four_way_vision = True)
