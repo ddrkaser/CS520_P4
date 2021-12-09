@@ -355,10 +355,10 @@ def generate_dataset():
     return dataset_x, dataset_y
 
 #export data        
-data_agent2_5 = generate_dataset()
-file = open('data_agent2_5.p', 'wb')
-pickle.dump(data_agent2_5, file)
-file.close()
+#data_agent2_5 = generate_dataset()
+#file = open('data_agent2_5.p', 'wb')
+#pickle.dump(data_agent2_5, file)
+#file.close()
 
 #import data
 file = open('data_agent2_1.p', 'rb')
@@ -366,19 +366,19 @@ data_agent2_1 = pickle.load(file)
 file.close()          
  
 """test dataset"""
-start = (0,0)
-end = (5,5)
-grid = generate_gridworld(6,6,.3,start,end)
-dataset_x = []
-dataset_y = []
-agent1 = algorithmA(grid, start, end, dataset_x, dataset_y, has_four_way_vision = True)        
+#start = (0,0)
+#end = (5,5)
+#grid = generate_gridworld(6,6,.3,start,end)
+#dataset_x = []
+#dataset_y = []
+#agent1 = algorithmA(grid, start, end, dataset_x, dataset_y, has_four_way_vision = True)        
 
 
          
 # Based on provided example notebook (https://colab.research.google.com/drive/11qqoQfeUiPtYF0feAKxdUHZCEuAnL_4H?usp=sharing)		 
 def generate_dense_NN(dim, layers):
     # Create an input layer with a number of neurons equal to the number of squares in the gridworld
-    input_layer = tf.keras.layers.Input(shape=((dim**2), 1))
+    input_layer = tf.keras.layers.Input(shape=dim**2)
     # Generate n_layers hidden layers, each with a preset number of neurons and the rectified linear unit activation function
 	# Each layer is bound to the previous layer
     dense_layer = tf.keras.layers.Dense(units=layers[0], activation=tf.nn.relu)(input_layer)
@@ -388,9 +388,18 @@ def generate_dense_NN(dim, layers):
 	# and bind it to the previous layers
     output_layer = tf.keras.layers.Dense(units=4, activation=None)(dense_layer)
 	# Create the neural network
-    return tf.keras.Model(inputs=input_layer, outputs=output_layer).compile()
+    return tf.keras.Model(inputs=input_layer, outputs=output_layer)
 	
-dense_NN = generate_dense_NN(101, (10, 10))
-data_agent2 = generate_dataset()
-print(dense_NN.fit(data_agent2[0], data_agent2[1], epochs=10))
+dense_NN = generate_dense_NN(101, (5, 5))
+# Compile the neural network with the parameters given in the example notebook
+dense_NN.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'] )
+#data_agent2 = generate_dataset()
 
+outs = {'down': 0, 'up': 1, 'left': 2, 'right': 3}
+conv_outs = list(map(lambda x: outs[x], data_agent2_1[1]))
+# Convert output data to one-hot encoded form
+one_hot = tf.keras.utils.to_categorical(conv_outs, 4)
+# Train the network with our generated data
+dense_NN.fit([data_agent2_1[0][0]], [[int(i) for i in one_hot[0]]], epochs=20)
+# Predict outputs for given inputs
+print(dense_NN.predict([data_agent2_1[0][0]]))
