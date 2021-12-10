@@ -358,7 +358,7 @@ def add_data_x_inference(curr_knowledge,data_x,prev_sq):
                 curr_x.append(x_value)
     curr_x[prev_sq[1]*dim + prev_sq[0]] += 9
     #one hot encode
-    curr_x = np.array(curr_x)
+    #curr_x = np.array(curr_x)
     encoded = tf.keras.utils.to_categorical(curr_x)
     data_x.append(encoded)
     return data_x
