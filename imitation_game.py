@@ -346,21 +346,37 @@ def add_data_x(curr_knowledge,data_x,prev_sq):
 #for example, 53220 means c=5,b=3,e=2,h=2,unblocked; if the last digit is 9, it means the agent is there
 def add_data_x_inference(curr_knowledge,data_x,prev_sq):
     dim = len(curr_knowledge)
-    curr_x = []
+    curr_x = [[], [], [], [], []]
+    agent_sq = prev_sq[1]*dim + prev_sq[0]
+	# Store the appropriate data for each square in the grid
     for y in range(dim):
         for x in range(dim):
-            if curr_knowledge[y][x].visited == False:
-                curr_x.append(curr_knowledge[y][x].blocked)
-            else:
-                x_value = (curr_knowledge[y][x].c * 10000 + curr_knowledge[y][x].b * 1000
-                           + curr_knowledge[y][x].e * 100 + curr_knowledge[y][x].h * 10
-                           + curr_knowledge[y][x].blocked)
-                curr_x.append(x_value)
-    curr_x[prev_sq[1]*dim + prev_sq[0]] += 9
-    #one hot encode
-    curr_x = np.array(curr_x)
-    encoded = tf.keras.utils.to_categorical(curr_x)
-    data_x.append(encoded)
+            #if curr_knowledge[y][x].visited == False:
+            #    curr_x.append(curr_knowledge[y][x].blocked)
+            #else:
+            #    x_value = (curr_knowledge[y][x].c * 10000 + curr_knowledge[y][x].b * 1000
+            #               + curr_knowledge[y][x].e * 100 + curr_knowledge[y][x].h * 10
+            #               + curr_knowledge[y][x].blocked)
+            #    curr_x.append(x_value)
+            curr_x[0].append(curr_knowledge[y][x].c)
+            curr_x[1].append(curr_knowledge[y][x].b)
+            curr_x[2].append(curr_knowledge[y][x].e)
+            curr_x[3].append(curr_knowledge[y][x].h)
+            curr_x[4].append(curr_knowledge[y][x].blocked)
+    # Note the agent's current location
+    curr_x[4][agent_sq] = 9
+    
+	# One-hot encode all of the data using the to_categorical() function from Tensorflow
+    # The first parameter indicates the data to be encoded, and the second the number of categories
+    # The values must be integers from 0 to the number of categories
+    encoded_data = []
+    encoded_data.append(tf.keras.utils.to_categorical(list(map(lambda x: 9 if x == 9999 else x, curr_x[0])), 10))
+    encoded_data.append(tf.keras.utils.to_categorical(list(map(lambda x: 9 if x == 9999 else x, curr_x[1])), 10))
+    encoded_data.append(tf.keras.utils.to_categorical(list(map(lambda x: 9 if x == 9999 else x, curr_x[2])), 10))
+    encoded_data.append(tf.keras.utils.to_categorical(list(map(lambda x: 9 if x == 9999 else x, curr_x[3])), 10))
+    encoded_data.append(tf.keras.utils.to_categorical(list(map(lambda x: 3 if x == 9 else x, curr_x[4])), 4))
+
+    data_x.append(encoded_data)
     return data_x
 
 def add_data_y(prev_sq,sq,data_y):
@@ -437,7 +453,7 @@ grid = generate_gridworld(101,101,.3,start,end)
 dataset_x = []
 dataset_y = []
 agent3 = inference(grid, start, end, dataset_x, dataset_y)
-         
+
 # Based on provided example notebook (https://colab.research.google.com/drive/11qqoQfeUiPtYF0feAKxdUHZCEuAnL_4H?usp=sharing)		 
 def generate_dense_NN(dim, layers):
     # Create an input layer with a number of neurons equal to the number of squares in the gridworld
