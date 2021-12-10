@@ -53,7 +53,7 @@ class Cell:
                                   (0 <= y2 < dim))]
         return neighbors
     #sense the neigbhors, update current cell's info
-    def sensing(self, knowledge):
+    def sensing(self, knowledge,grid):
         neighbors = knowledge[self.row][self.col].findneighbors()
         c = 0
         b = 0
@@ -109,7 +109,7 @@ def add_visited_neighbors(y,x,knowledge,queue):
     return queue
 
 #inferencing info of current cell, if updated then propagate to its visited neighbors and so on
-def infering(y,x,knowledge):
+def infering(y,x,knowledge,grid):
     queue = [(x,y)]
     queue = add_visited_neighbors(y,x,knowledge,queue)
     while len(queue) != 0:
@@ -117,7 +117,7 @@ def infering(y,x,knowledge):
             queue.remove(item)
             x1, y1 = item
             neighbors = knowledge[y1][x1].findneighbors()
-            knowledge[y1][x1].sensing(knowledge)
+            knowledge[y1][x1].sensing(knowledge,grid)
             #see if the information contradicts the current knowledge
             if knowledge[y1][x1].n < (knowledge[y1][x1].c + knowledge[y1][x1].e):
                 return False
@@ -231,7 +231,7 @@ def algorithmA(grid, start, end, data_x, data_y, has_four_way_vision):
             x = sq[0]
             y = sq[1]
             if sq != prev_sq:
-                data_x = add_data_x(curr_knowledge,data_x)
+                data_x = add_data_x(curr_knowledge,data_x, prev_sq)
 			# If blocked, rerun A* and restart loop
             if grid[y][x] == 1:
                 # If the robot can only see squares in its direction of movement, update its current knowledge of the grid to include this blocked square
@@ -251,14 +251,20 @@ def algorithmA(grid, start, end, data_x, data_y, has_four_way_vision):
                 curr_knowledge[y][x].blocked = 0
                 # If the robot can see in all compass directions, update squares adjacent to its current position
                 if has_four_way_vision:
-                     if x != 0:
-                         curr_knowledge[y][x - 1].blocked = grid[y][x - 1]
-                     if x < len(curr_knowledge[0]) - 1:
-                         curr_knowledge[y][x + 1].blocked = grid[y][x + 1]
-                     if y != 0:
-                         curr_knowledge[y - 1][x].blocked = grid[y - 1][x]
-                     if y < len(curr_knowledge) - 1:
-                         curr_knowledge[y + 1][x].blocked = grid[y + 1][x]
+                    if x != 0:
+                        curr_knowledge[y][x - 1].blocked = grid[y][x - 1]
+                    if x < len(curr_knowledge[0]) - 1:
+                        curr_knowledge[y][x + 1].blocked = grid[y][x + 1]
+                    if y != 0:
+                        curr_knowledge[y - 1][x].blocked = grid[y - 1][x]
+                    if y < len(curr_knowledge) - 1:
+                        curr_knowledge[y + 1][x].blocked = grid[y + 1][x]
+                    if is_path_blocked(curr_knowledge, shortest_path):
+                         shortest_path = A_star(curr_knowledge, sq, end)
+                         data_y = add_data_y(prev_sq,sq,data_y)
+                         prev_sq = sq
+                         is_broken = True
+                         break
                 data_y = add_data_y(prev_sq,sq,data_y)
             prev_sq = sq
         if not is_broken:
@@ -266,11 +272,12 @@ def algorithmA(grid, start, end, data_x, data_y, has_four_way_vision):
         is_broken = False
     return [complete_path, cell_count,data_x,data_y]
 
-def inference(grid, start, end):
+def inference(grid, start, end, data_x, data_y):
     #generate initial shortest path
-    shortest_path = A_star(generate_knowledge(grid), start, end)
-    curr_knowledge = generate_knowledge(grid)
+    curr_knowledge = generate_knowledge(grid, start, end)
     complete_path = [(0,0)]
+    prev_sq = (0,0)
+    shortest_path = A_star(curr_knowledge, start, end)
     if not shortest_path:
         return False
     is_broken = False
@@ -280,17 +287,20 @@ def inference(grid, start, end):
         for sq in shortest_path[0]:
             x = sq[0]
             y = sq[1]
+            if sq != prev_sq:
+                data_x = add_data_x_inference(curr_knowledge,data_x,prev_sq)
 			# If blocked, rerun A* and restart loop            
             if grid[y][x] == 1:
                 curr_knowledge[y][x].blocked = 1
                 x1, y1 = prev_sq
-                curr_knowledge = infering(y1,x1,curr_knowledge)
+                curr_knowledge = infering(y1,x1,curr_knowledge,grid)
                 shortest_path = A_star(curr_knowledge, prev_sq, end)
                 #print(shortest_path)
                 if not shortest_path:
                     return False
                 is_broken = True
                 cell_count += shortest_path[1]
+                data_y = add_data_y(prev_sq,sq,data_y)
                 break
 			# If new square unblocked, update curr_knowledge. Loop will restart and move to next square on presumed shortest path
             else:
@@ -299,31 +309,58 @@ def inference(grid, start, end):
                 curr_knowledge[y][x].blocked = 0
                 curr_knowledge[y][x].visited = True
                 if curr_knowledge[y][x].h != 0:
-                    curr_knowledge = infering(y,x,curr_knowledge)
+                    curr_knowledge = infering(y,x,curr_knowledge,grid)
                     if is_path_blocked(curr_knowledge, shortest_path):
                         shortest_path = A_star(curr_knowledge, sq, end)
-                    #print(sq)
+                        data_y = add_data_y(prev_sq,sq,data_y)
+                        prev_sq = sq
+                        is_broken = True
+                        break
+                data_y = add_data_y(prev_sq,sq,data_y)
             prev_sq = sq
         if not is_broken:
             break
         is_broken = False
-    return [complete_path, cell_count]    
+    return [complete_path, cell_count,data_x,data_y]    
 
 def is_path_blocked(curr_knowledge, shortest_path):
     for cell in shortest_path[0]:
         x1, y1 = cell
         if curr_knowledge[y1][x1].blocked == 1:
             return True
-        else:
-            return False           
-
-def add_data_x(curr_knowledge,data_x):
+    return False    
+       
+#generate dataset_x for currrent_knowledge, {0:unblocked, 1:blocked, 3:unknown}
+def add_data_x(curr_knowledge,data_x,prev_sq):
     dim = len(curr_knowledge)
     curr_x = []
     for y in range(dim):
         for x in range(dim):
             curr_x.append(curr_knowledge[y][x].blocked)
+    #mark the agent's location, 9 represents where the agent is
+    curr_x[prev_sq[1]*dim + prev_sq[0]] = 9
     data_x.append(curr_x)
+    return data_x
+
+#generate dataset_x for current_knowledge, with 5 digits represent c,b,e,h,block respectively
+#for example, 53220 means c=5,b=3,e=2,h=2,unblocked; if the last digit is 9, it means the agent is there
+def add_data_x_inference(curr_knowledge,data_x,prev_sq):
+    dim = len(curr_knowledge)
+    curr_x = []
+    for y in range(dim):
+        for x in range(dim):
+            if curr_knowledge[y][x].visited == False:
+                curr_x.append(curr_knowledge[y][x].blocked)
+            else:
+                x_value = (curr_knowledge[y][x].c * 10000 + curr_knowledge[y][x].b * 1000
+                           + curr_knowledge[y][x].e * 100 + curr_knowledge[y][x].h * 10
+                           + curr_knowledge[y][x].blocked)
+                curr_x.append(x_value)
+    curr_x[prev_sq[1]*dim + prev_sq[0]] += 9
+    #one hot encode
+    curr_x = np.array(curr_x)
+    encoded = tf.keras.utils.to_categorical(curr_x)
+    data_x.append(encoded)
     return data_x
 
 def add_data_y(prev_sq,sq,data_y):
@@ -350,30 +387,49 @@ def generate_dataset():
     while trial < 100:
         print("running trial {}".format(trial))
         grid = generate_gridworld(101, 101, 0.3,start,end)
-        agent2 = algorithmA(grid, start, end, dataset_x, dataset_y, has_four_way_vision = True)
+        agent1 = algorithmA(grid, start, end, dataset_x, dataset_y, has_four_way_vision = True)
+        trial +=1
+    return dataset_x, dataset_y
+
+def generate_dataset_inference():
+    dataset_x = []
+    dataset_y = []
+    start = (0,0)
+    end = (100,100)
+    trial = 0
+    while trial < 100:
+        print("running trial {}".format(trial))
+        grid = generate_gridworld(101, 101, 0.3,start,end)
+        agent3 = inference(grid, start, end, dataset_x, dataset_y)
         trial +=1
     return dataset_x, dataset_y
 
 #export data        
-data_agent2_5 = generate_dataset()
-file = open('data_agent2_5.p', 'wb')
-pickle.dump(data_agent2_5, file)
+data_agent3_1 = generate_dataset_inference()
+file = open('data_agent3_1.p', 'wb')
+pickle.dump(data_agent3_1, file)
 file.close()
 
 #import data
-file = open('data_agent2_1.p', 'rb')
-data_agent2_1 = pickle.load(file)
+file = open('data_agent1_1.p', 'rb')
+data_agent1_1 = pickle.load(file)
 file.close()          
  
 """test dataset"""
 start = (0,0)
-end = (5,5)
-grid = generate_gridworld(6,6,.3,start,end)
+end = (2,2)
+grid = generate_gridworld(3,3,.3,start,end)
 dataset_x = []
 dataset_y = []
 agent1 = algorithmA(grid, start, end, dataset_x, dataset_y, has_four_way_vision = True)        
 
-
+"""test dataset_inference"""
+start = (0,0)
+end = (100,100)
+grid = generate_gridworld(101,101,.3,start,end)
+dataset_x = []
+dataset_y = []
+agent3 = inference(grid, start, end, dataset_x, dataset_y)
          
 # Based on provided example notebook (https://colab.research.google.com/drive/11qqoQfeUiPtYF0feAKxdUHZCEuAnL_4H?usp=sharing)		 
 def generate_dense_NN(dim, layers):
