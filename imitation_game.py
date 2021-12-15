@@ -461,9 +461,9 @@ file.close()
 #agent3 = inference(grid, start, end, dataset_x, dataset_y)
 
 # Based on provided example notebook (https://colab.research.google.com/drive/11qqoQfeUiPtYF0feAKxdUHZCEuAnL_4H?usp=sharing)		 
-def generate_dense_NN(dim, layers):
+def generate_dense_NN(dim, layers, num_datapoints):
     # Create an input layer with a number of neurons equal to the number of squares in the gridworld
-    input_layer = tf.keras.layers.Input(shape=dim**2)
+    input_layer = tf.keras.layers.Input(shape=((dim**2) * num_datapoints))
     # Generate layers hidden layers, each with a preset number of neurons and the rectified linear unit activation function
 	# Each layer is bound to the previous layer
     dense_layer = tf.keras.layers.Dense(units=layers[0], activation=tf.nn.relu)(input_layer)
@@ -477,7 +477,7 @@ def generate_dense_NN(dim, layers):
 	
 # Based on provided example notebook (https://colab.research.google.com/drive/1psKxc1vhK4jvc-ego9dZTs6qXsnnJulG?usp=sharing)		 
 def generate_conv_NN(dim, layers, size, filter, stride):
-    # Create an input layer with a number of neurons equal to the number of squares in the gridworld
+    # Create an input layer with a number of neurons equal to the number of squares in the gridworld, arranged in a rectangle
     input_layer = tf.keras.layers.Input(shape=(dim, dim, 1))
 	# Add one convolutional hidden layer, with a window of size size, moving stride squares each iteration, and with a filter value of filter
     layer = tf.keras.layers.Conv2D(filters=filter, kernel_size=size, strides=stride, activation=tf.nn.relu)(input_layer)
@@ -507,21 +507,25 @@ def Max_Pool_NN(dim, layers,stride,pool_size):
     output_layer = tf.keras.layers.Dense(units=4, activation=None)(player)
 	# Create the neural network
     return tf.keras.Model(inputs=input_layer, outputs=output_layer)
-
-def train_model(NN, input, output, rounds):
-    NN.fit(input, output, epochs=rounds)
-    return NN
-
+	
 def test_model(NN, input, output):
     num_correct = 0
     for i, test_inp in enumerate(input):
-        res = NN.predict(input[i])
+        print(output[i])
+        res = NN.predict([input[i]])
         print(res)
-        if max(res) == output:
+        max_res = max(res[0])
+        for j, _ in enumerate(res):
+            if res[0][j] == max_res:
+                break
+        for k, _ in enumerate(output[i]):
+            if output[i][k] > 0:
+                break
+        if j == k:
             num_correct += 1
     return num_correct
 		
-def run_ML_agent_1(NN, grid):
+def run_ML_agent_1(NN, grid, start, end):
     # The assumed state of the gridworld at any point in time. For some questions, the current knowledge is unknown at the start
     curr_knowledge = generate_knowledge(grid,start,end)
     # If the grid is considered known to the robot, operate on that known grid
@@ -529,10 +533,11 @@ def run_ML_agent_1(NN, grid):
     complete_path = [(0,0)]
     prev_sq = (0,0)
     is_broken = False
-    cell_count = shortest_path[1]
+    curr_sq = start
     while True:
 		# Move pointer square by square along path
         next_move = NN.predict(curr_knowledge)
+        print(max(next_move))
 			# If blocked, rerun A* and restart loop
         if grid[y][x] == 1:
                 # If the robot can only see squares in its direction of movement, update its current knowledge of the grid to include this blocked square
@@ -572,13 +577,12 @@ def run_ML_agent_1(NN, grid):
         is_broken = False
     return [complete_path, cell_count,data_x,data_y]
 	
-dense_NN = generate_dense_NN(31, (5, 5))
+#dense_NN = generate_dense_NN(31, (5, 5), 1)
 #conv_NN = generate_conv_NN(31, (5, 5), (2, 2), 1, (1, 1))
 
 # Compile the neural network with the parameters given in the example notebook
-dense_NN.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'] )
+#dense_NN.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'] )
 #data_agent2 = generate_dataset()
-
 outs = {'down': 0, 'up': 1, 'left': 2, 'right': 3}
 conv_outs = list(map(lambda x: outs[x], data_agent_1[1]))
 # Convert output data to one-hot encoded form
@@ -591,28 +595,76 @@ for arr in data_agent_1[0]:
 input = data_agent_1[0][:30000]
 output = one_hot[:30000]
 
+#conv_input = []
+#conv_test_input = []
+#for i in range(30000):
+#    curr = np.array(input[i])
+#    reshaped = curr.reshape(31, 31)
+#    inp = []
+#    for row in reshaped:
+#        r = []
+#        for val in row:
+#            r.append(int(val))
+#        inp.append(r)
+#    conv_input.append(inp)
+
+#for i in range(30000, len(input)):
+#    curr = np.array(input[i])
+#    reshaped = curr.reshape(31, 31)
+#    inp = []
+#    for row in reshaped:
+#        r = []
+#        for val in row:
+#            r.append(int(val))
+#        inp.append(r)
+#    conv_test_input.append(inp)
+
+#test_data = []
+#for i in range(1, 4):
+#    NN = generate_conv_NN(31, [3], (2, 2), 1, (1, 1))
+#    NN.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'] )
+#    NN.fit(conv_input, output, epochs=i)
+#    res = test_model(NN, conv_test_input, one_hot[30000:])
+#    test_data.append(res)
+#print(res)
+
 test_data = []
-for i in range(10):
-    NN = generate_dense_NN(31, (5, 5))
-    NN = train_model(NN, input, output, i)
-    print(NN)
+for i in range(1, 4):
+    NN = generate_dense_NN(31, [5], 1)
+    NN.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'] )
+    NN.fit(input, output, epochs=i)
     res = test_model(NN, data_agent_1[0][30000:], one_hot[30000:])
     test_data.append(res)
+print(test_data)
+
+
+#conv_outs = list(map(lambda x: outs[x], data_agent_3[1]))
+#one_hot = tf.keras.utils.to_categorical(conv_outs, 4).astype(int)
+#one_hot = [[int(arr[0]), int(arr[1]), int(arr[2]), int(arr[3])] for arr in one_hot]
+#input = []
+#for inp in data_agent_3[0]:
+#    flattened_inp = []
+#    for i, arr in enumerate(inp):
+#        if i < 4:
+#            encoded = tf.keras.utils.to_categorical(arr, 10)
+#        else:
+#            encoded = tf.keras.utils.to_categorical(arr, 4)
+#        for arr in encoded:
+#            for j in range(len(arr)):
+#                arr[j] = int(arr[j])		
+#        for val in encoded:
+#            flattened_inp.append(val)
+#    input.append(flattened_inp)
+#input = input
+#output = one_hot[:35000]
+
+#test_data = []
+#for i in range(1, 4):
+#    NN = generate_dense_NN(31, (15), 5)
+#    NN.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'] )
+#    NN.fit(input[:35000], output, epochs=i)
+#    res = test_model(NN, input[35000:], one_hot[35000:])
+#    test_data.append(res)
+#print(res)
 # Predict outputs for given inputs
 #print(dense_NN.predict([data_agent2_1[0][0]]))
-
-
-"""test by X.L
-data_agent1_1 = generate_dataset()
-data_x = data_agent1_1[0]
-data_y = data_agent1_1[1]
-dense_NN = generate_dense_NN(31, (5, 5))
-dense_NN.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'] )
-outs = {'down': 0, 'up': 1, 'left': 2, 'right': 3}
-conv_outs = list(map(lambda x: outs[x], data_y))
-one_hot = tf.keras.utils.to_categorical(conv_outs, 4)
-train_in = np.array(data_x)/9
-dense_NN.fit(train_in, one_hot, epochs=20)
-result = dense_NN.predict(train_in)
-"""
-
