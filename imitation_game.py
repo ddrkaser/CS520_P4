@@ -583,3 +583,19 @@ for i in range(10):
     test_data.append(res)
 # Predict outputs for given inputs
 #print(dense_NN.predict([data_agent2_1[0][0]]))
+
+
+"""test by X.L
+data_agent1_1 = generate_dataset()
+data_x = data_agent1_1[0]
+data_y = data_agent1_1[1]
+dense_NN = generate_dense_NN(31, (5, 5))
+dense_NN.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'] )
+outs = {'down': 0, 'up': 1, 'left': 2, 'right': 3}
+conv_outs = list(map(lambda x: outs[x], data_y))
+one_hot = tf.keras.utils.to_categorical(conv_outs, 4)
+train_in = np.array(data_x)/9
+dense_NN.fit(train_in, one_hot, epochs=20)
+result = dense_NN.predict(train_in)
+"""
+
