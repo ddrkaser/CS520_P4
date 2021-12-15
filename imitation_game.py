@@ -492,13 +492,13 @@ def generate_conv_NN(dim, layers, size, filter, stride):
     return tf.keras.Model(inputs=input_layer, outputs=output_layer)
 
 # Extra Credit architecture - Max Pool Architecture
-def Max_Pool_NN(dim, layers,stride):
+def Max_Pool_NN(dim, layers,stride,pool_size):
     # Create an input layer with a number of neurons equal to the number of squares in the gridworld
    input_layer = tf.keras.layers.Input(shape=dim**2)
     # Generate layers hidden layers, each with a preset number of neurons and the rectified linear unit activation function
 	# Each layer is bound to the previous layer
     pool_layer =  tf.keras.layers.MaxPool2D(
-    pool_size=(dim, dim), strides=stride, padding='valid', data_format=None,
+    pool_size=(pool_size, pool_size), strides=stride, padding='valid', data_format=None,
     )
     for i in range(len(layers) - 1):
         player = tf.keras.layers.Dense(units=layers[i], activation=tf.nn.relu)(dense_layer)
