@@ -532,12 +532,12 @@ def run_ML_agent_1(NN, grid, start, end):
 	# Else, the robot assumes a completely unblocked gridworld and will have to discover it as it moves
     complete_path = [(0,0)]
     prev_sq = (0,0)
+    sq = (0,0)
     is_broken = False
     curr_sq = start
     while True:
-		# Move pointer square by square along path
-        next_move = NN.predict(curr_knowledge)
-        print(max(next_move))
+		#Use predict to generate the probability of 4 directions, the agent will move toward the direction with higest probability
+        next_move = predict_direction(prev_sq, sq, curr_knowledge)
 			# If blocked, rerun A* and restart loop
         if grid[y][x] == 1:
                 # If the robot can only see squares in its direction of movement, update its current knowledge of the grid to include this blocked square
@@ -576,7 +576,30 @@ def run_ML_agent_1(NN, grid, start, end):
                      break
         is_broken = False
     return [complete_path, cell_count,data_x,data_y]
-	
+
+def predict_direction(prev_sq, sq, curr_knowledge):
+    #the predict return probabilities for direction down, up, left, right
+    possible_move = NN.predict(curr_knowledge)
+    dim = len(curr_knowledge)
+    x = sq[0]
+    y = sq[1]
+    neighbors = curr_knowledge.find_neighbors()
+    best_direction = 0
+    candidates = {(x,y+1):possible_move[0],(x,y-1):possible_move[1],(x-1,y):possible_move[2],(x+1,y):possible_move[3]}
+    max_prob = 0
+    for direction in candidates.keys():
+        x1,y1 = direction
+        #remove invalid direction when it bumps into a known block, backward, or across the border
+        if curr_knowledge[y1][x1].blocked == 1 or direction not in neighbors or direction == prev_sq:
+            candidates.pop(direction, None)
+    for direction, probability in candidates.items():
+        if probability >= max_prob:
+            max_prob = probability
+            best_direction = direction
+    return direction
+
+        
+
 #dense_NN = generate_dense_NN(31, (5, 5), 1)
 #conv_NN = generate_conv_NN(31, (5, 5), (2, 2), 1, (1, 1))
 
