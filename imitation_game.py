@@ -370,11 +370,11 @@ def add_data_x_inference(curr_knowledge,data_x,prev_sq):
     # The first parameter indicates the data to be encoded, and the second the number of categories
     # The values must be integers from 0 to the number of categories
     encoded_data = []
-    encoded_data.append(tf.keras.utils.to_categorical(list(map(lambda x: 9 if x == 9999 else x, curr_x[0])), 10))
-    encoded_data.append(tf.keras.utils.to_categorical(list(map(lambda x: 9 if x == 9999 else x, curr_x[1])), 10))
-    encoded_data.append(tf.keras.utils.to_categorical(list(map(lambda x: 9 if x == 9999 else x, curr_x[2])), 10))
-    encoded_data.append(tf.keras.utils.to_categorical(list(map(lambda x: 9 if x == 9999 else x, curr_x[3])), 10))
-    encoded_data.append(tf.keras.utils.to_categorical(list(map(lambda x: 3 if x == 9 else x, curr_x[4])), 4))
+    encoded_data.append(list(map(lambda x: 9 if x == 9999 else x, curr_x[0])))
+    encoded_data.append(list(map(lambda x: 9 if x == 9999 else x, curr_x[1])))
+    encoded_data.append(list(map(lambda x: 9 if x == 9999 else x, curr_x[2])))
+    encoded_data.append(list(map(lambda x: 9 if x == 9999 else x, curr_x[3])))
+    encoded_data.append(list(map(lambda x: 3 if x == 9 else x, curr_x[4])))
 
     data_x.append(encoded_data)
     return data_x
@@ -398,11 +398,11 @@ def generate_dataset():
     dataset_x = []
     dataset_y = []
     start = (0,0)
-    end = (100,100)
+    end = (30,30)
     trial = 0
-    while trial < 100:
+    while trial < 300:
         print("running trial {}".format(trial))
-        grid = generate_gridworld(101, 101, 0.3,start,end)
+        grid = generate_gridworld(31, 31, 0.3,start,end)
         agent1 = algorithmA(grid, start, end, dataset_x, dataset_y, has_four_way_vision = True)
         trial +=1
     return dataset_x, dataset_y
@@ -411,48 +411,54 @@ def generate_dataset_inference():
     dataset_x = []
     dataset_y = []
     start = (0,0)
-    end = (100,100)
+    end = (30,30)
     trial = 0
-    while trial < 100:
+    while trial < 300:
         print("running trial {}".format(trial))
-        grid = generate_gridworld(101, 101, 0.3,start,end)
+        grid = generate_gridworld(31, 31, 0.3,start,end)
         agent3 = inference(grid, start, end, dataset_x, dataset_y)
         trial +=1
     return dataset_x, dataset_y
 
 #export data  agent 3      
-data_agent3_1 = generate_dataset_inference()
-file = open('data_agent3_1.p', 'wb')
-pickle.dump(data_agent3_1, file)
-file.close()
+#data_agent3_1 = generate_dataset_inference()
+#file = open('data_agent3_1.p', 'wb')
+#pickle.dump(data_agent3_1, file)
+#file.close()
 
 #export data agent 1
-data_agent1_1 = generate_dataset()
-file = open('data_agent1_1.p', 'wb')
-pickle.dump(data_agent1_1, file)
-file.close()
+#data_agent1_1 = generate_dataset()
+#file = open('data_agent1_1.p', 'wb')
+#pickle.dump(data_agent1_1, file)
+#file.close()
 
 #import data
 file = open('data_agent1_1.p', 'rb')
-data_agent1_1 = pickle.load(file)
+data_agent_1 = pickle.load(file)
+data_agent_1 = [data_agent_1[0], data_agent_1[1]]
 file.close()          
- 
+
+file = open('data_agent3_1.p', 'rb')
+data_agent_3 = pickle.load(file)
+data_agent_3 = [data_agent_3[0], data_agent_3[1]]
+file.close() 
+
 """test dataset"""
-start = (0,0)
-end = (2,2)
-grid = generate_gridworld(3,3,.3,start,end)
-dataset_x = []
-dataset_y = []
-agent1 = algorithmA(grid, start, end, dataset_x, dataset_y, has_four_way_vision = True)        
+#start = (0,0)
+#end = (2,2)
+#grid = generate_gridworld(3,3,.3,start,end)
+#dataset_x = []
+#dataset_y = []
+#agent1 = algorithmA(grid, start, end, dataset_x, dataset_y, has_four_way_vision = True)        
 
 
 """test dataset_inference"""
-start = (0,0)
-end = (100,100)
-grid = generate_gridworld(101,101,.3,start,end)
-dataset_x = []
-dataset_y = []
-agent3 = inference(grid, start, end, dataset_x, dataset_y)
+#start = (0,0)
+#end = (100,100)
+#grid = generate_gridworld(101,101,.3,start,end)
+#dataset_x = []
+#dataset_y = []
+#agent3 = inference(grid, start, end, dataset_x, dataset_y)
 
 # Based on provided example notebook (https://colab.research.google.com/drive/11qqoQfeUiPtYF0feAKxdUHZCEuAnL_4H?usp=sharing)		 
 def generate_dense_NN(dim, layers):
@@ -484,19 +490,96 @@ def generate_conv_NN(dim, layers, size, filter, stride):
     output_layer = tf.keras.layers.Dense(units=4, activation=None)(layer)
 	# Create the neural network
     return tf.keras.Model(inputs=input_layer, outputs=output_layer)
+
+def train_model(NN, input, output, rounds):
+    NN.fit(input, output, epochs=rounds)
+    return NN
+
+def test_model(NN, input, output):
+    num_correct = 0
+    for i, test_inp in enumerate(input):
+        res = NN.predict(input[i])
+        print(res)
+        if max(res) == output:
+            num_correct += 1
+    return num_correct
+		
+def run_ML_agent_1(NN, grid):
+    # The assumed state of the gridworld at any point in time. For some questions, the current knowledge is unknown at the start
+    curr_knowledge = generate_knowledge(grid,start,end)
+    # If the grid is considered known to the robot, operate on that known grid
+	# Else, the robot assumes a completely unblocked gridworld and will have to discover it as it moves
+    complete_path = [(0,0)]
+    prev_sq = (0,0)
+    is_broken = False
+    cell_count = shortest_path[1]
+    while True:
+		# Move pointer square by square along path
+        next_move = NN.predict(curr_knowledge)
+			# If blocked, rerun A* and restart loop
+        if grid[y][x] == 1:
+                # If the robot can only see squares in its direction of movement, update its current knowledge of the grid to include this blocked square
+            if not has_four_way_vision:
+               curr_knowledge[y][x].blocked = 1
+            shortest_path = A_star(curr_knowledge, prev_sq, end)   
+            if not shortest_path:
+                return False
+            is_broken = True
+            cell_count += shortest_path[1]
+            data_y = add_data_y(prev_sq,sq,data_y)
+            break
+			# If new square unblocked, update curr_knowledge. Loop will restart and move to next square on presumed shortest path
+        else:
+           if sq != complete_path[-1]:
+                complete_path.append(sq)
+           curr_knowledge[y][x].blocked = 0
+                # If the robot can see in all compass directions, update squares adjacent to its current position
+           if has_four_way_vision:
+                if x != 0:
+                    curr_knowledge[y][x - 1].blocked = grid[y][x - 1]
+                if x < len(curr_knowledge[0]) - 1:
+                    curr_knowledge[y][x + 1].blocked = grid[y][x + 1]
+                if y != 0:
+                    curr_knowledge[y - 1][x].blocked = grid[y - 1][x]
+                if y < len(curr_knowledge) - 1:
+                    curr_knowledge[y + 1][x].blocked = grid[y + 1][x]
+                if is_path_blocked(curr_knowledge, shortest_path):
+                     shortest_path = A_star(curr_knowledge, sq, end)
+                     data_y = add_data_y(prev_sq,sq,data_y)
+                     prev_sq = sq
+                     is_broken = True
+                     break
+                prev_sq = sq
+                if not is_broken:
+                     break
+        is_broken = False
+    return [complete_path, cell_count,data_x,data_y]
 	
-dense_NN = generate_dense_NN(101, (5, 5))
-conv_NN = generate_conv_NN(101, (5, 5), (2, 2), 1, (1, 1))
+dense_NN = generate_dense_NN(31, (5, 5))
+#conv_NN = generate_conv_NN(31, (5, 5), (2, 2), 1, (1, 1))
 
 # Compile the neural network with the parameters given in the example notebook
 dense_NN.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'] )
 #data_agent2 = generate_dataset()
 
 outs = {'down': 0, 'up': 1, 'left': 2, 'right': 3}
-conv_outs = list(map(lambda x: outs[x], data_agent2_1[1]))
+conv_outs = list(map(lambda x: outs[x], data_agent_1[1]))
 # Convert output data to one-hot encoded form
-one_hot = tf.keras.utils.to_categorical(conv_outs, 4)
+one_hot = tf.keras.utils.to_categorical(conv_outs, 4).astype(int)
+one_hot = [[int(arr[0]), int(arr[1]), int(arr[2]), int(arr[3])] for arr in one_hot]
 # Train the network with our generated data
-dense_NN.fit([data_agent2_1[0][0]], [[int(i) for i in one_hot[0]]], epochs=20)
+for arr in data_agent_1[0]:
+    for i, val in enumerate(arr):
+        arr[i] = int(arr[i])
+input = data_agent_1[0][:30000]
+output = one_hot[:30000]
+
+test_data = []
+for i in range(10):
+    NN = generate_dense_NN(31, (5, 5))
+    NN = train_model(NN, input, output, i)
+    print(NN)
+    res = test_model(NN, data_agent_1[0][30000:], one_hot[30000:])
+    test_data.append(res)
 # Predict outputs for given inputs
-print(dense_NN.predict([data_agent2_1[0][0]]))
+#print(dense_NN.predict([data_agent2_1[0][0]]))
