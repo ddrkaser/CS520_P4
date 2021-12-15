@@ -481,6 +481,7 @@ def generate_conv_NN(dim, layers, size, filter, stride):
     input_layer = tf.keras.layers.Input(shape=(dim, dim, 1))
 	# Add one convolutional hidden layer, with a window of size size, moving stride squares each iteration, and with a filter value of filter
     layer = tf.keras.layers.Conv2D(filters=filter, kernel_size=size, strides=stride, activation=tf.nn.relu)(input_layer)
+    layer = tf.keras.layers.Flatten()(layer)
 	# Generate layers hidden layers, each with a preset number of neurons and the rectified linear unit activation function
 	# Each layer is bound to the previous layer
     for i in range(len(layers)):
@@ -492,21 +493,20 @@ def generate_conv_NN(dim, layers, size, filter, stride):
     return tf.keras.Model(inputs=input_layer, outputs=output_layer)
 
 # Extra Credit architecture - Max Pool Architecture
-def Max_Pool_NN(dim, layers,stride,pool_size):
+#def Max_Pool_NN(dim, layers,stride,pool_size):
     # Create an input layer with a number of neurons equal to the number of squares in the gridworld
-   input_layer = tf.keras.layers.Input(shape=dim**2)
+#   input_layer = tf.keras.layers.Input(shape=dim**2)
     # Generate layers hidden layers, each with a preset number of neurons and the rectified linear unit activation function
 	# Each layer is bound to the previous layer
-    pool_layer =  tf.keras.layers.MaxPool2D(
-    pool_size=(pool_size, pool_size), strides=stride, padding='valid', data_format=None,
-    )
-    for i in range(len(layers) - 1):
-        player = tf.keras.layers.Dense(units=layers[i], activation=tf.nn.relu)(dense_layer)
+#    pool_layer =  tf.keras.layers.MaxPool2D(
+#    pool_size=(pool_size, pool_size), strides=stride, padding='valid', data_format=None)
+#    for i in range(len(layers) - 1):
+#        player = tf.keras.layers.Dense(units=layers[i], activation=tf.nn.relu)(dense_layer)
 	# Create the output layer, with four neurons representing the four directions our network cbooses between,
 	# and bind it to the previous layers
-    output_layer = tf.keras.layers.Dense(units=4, activation=None)(player)
+#    output_layer = tf.keras.layers.Dense(units=4, activation=None)(player)
 	# Create the neural network
-    return tf.keras.Model(inputs=input_layer, outputs=output_layer)
+#    return tf.keras.Model(inputs=input_layer, outputs=output_layer)
 	
 def test_model(NN, input, output):
     num_correct = 0
@@ -595,47 +595,47 @@ for arr in data_agent_1[0]:
 input = data_agent_1[0][:30000]
 output = one_hot[:30000]
 
-#conv_input = []
-#conv_test_input = []
-#for i in range(30000):
-#    curr = np.array(input[i])
-#    reshaped = curr.reshape(31, 31)
-#    inp = []
-#    for row in reshaped:
-#        r = []
-#        for val in row:
-#            r.append(int(val))
-#        inp.append(r)
-#    conv_input.append(inp)
+conv_input = []
+conv_test_input = []
+for i in range(30000):
+    curr = np.array(input[i])
+    reshaped = curr.reshape(31, 31)
+    inp = []
+    for row in reshaped:
+        r = []
+        for val in row:
+            r.append(int(val))
+        inp.append(r)
+    conv_input.append(inp)
 
-#for i in range(30000, len(input)):
-#    curr = np.array(input[i])
-#    reshaped = curr.reshape(31, 31)
-#    inp = []
-#    for row in reshaped:
-#        r = []
-#        for val in row:
-#            r.append(int(val))
-#        inp.append(r)
-#    conv_test_input.append(inp)
-
-#test_data = []
-#for i in range(1, 4):
-#    NN = generate_conv_NN(31, [3], (2, 2), 1, (1, 1))
-#    NN.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'] )
-#    NN.fit(conv_input, output, epochs=i)
-#    res = test_model(NN, conv_test_input, one_hot[30000:])
-#    test_data.append(res)
-#print(res)
+for i in range(30000, len(input)):
+    curr = np.array(input[i])
+    reshaped = curr.reshape(31, 31)
+    inp = []
+    for row in reshaped:
+        r = []
+        for val in row:
+            r.append(int(val))
+        inp.append(r)
+    conv_test_input.append(inp)
 
 test_data = []
 for i in range(1, 4):
-    NN = generate_dense_NN(31, [5], 1)
+    NN = generate_conv_NN(31, [3], (2, 2), 1, (1, 1))
     NN.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'] )
-    NN.fit(input, output, epochs=i)
-    res = test_model(NN, data_agent_1[0][30000:], one_hot[30000:])
+    NN.fit(conv_input, output, epochs=i)
+    res = test_model(NN, conv_test_input, one_hot[30000:])
     test_data.append(res)
 print(test_data)
+
+#test_data = []
+#for i in range(1, 4):
+#    NN = generate_dense_NN(31, [5], 1)
+#    NN.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'] )
+#    NN.fit(input, output, epochs=i)
+#    res = test_model(NN, data_agent_1[0][30000:], one_hot[30000:])
+#    test_data.append(res)
+#print(test_data)
 
 
 #conv_outs = list(map(lambda x: outs[x], data_agent_3[1]))
