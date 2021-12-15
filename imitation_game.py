@@ -512,6 +512,7 @@ def test_model(NN, input, output):
     num_correct = 0
     for i, test_inp in enumerate(input):
         print(output[i])
+		# Get the expected prediction using our neural network
         res = NN.predict([input[i]])
         print(res)
         max_res = max(res[0])
@@ -598,14 +599,7 @@ def predict_direction(prev_sq, sq, curr_knowledge):
             best_direction = direction
     return direction
 
-        
 
-#dense_NN = generate_dense_NN(31, (5, 5), 1)
-#conv_NN = generate_conv_NN(31, (5, 5), (2, 2), 1, (1, 1))
-
-# Compile the neural network with the parameters given in the example notebook
-#dense_NN.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'] )
-#data_agent2 = generate_dataset()
 outs = {'down': 0, 'up': 1, 'left': 2, 'right': 3}
 conv_outs = list(map(lambda x: outs[x], data_agent_1[1]))
 # Convert output data to one-hot encoded form
@@ -631,8 +625,8 @@ for i in range(30000):
         inp.append(r)
     conv_input.append(inp)
 
-for i in range(30000, len(input)):
-    curr = np.array(input[i])
+for i in range(30000, len(data_agent_1[0])):
+    curr = np.array(data_agent_1[0][i])
     reshaped = curr.reshape(31, 31)
     inp = []
     for row in reshaped:
@@ -645,6 +639,7 @@ for i in range(30000, len(input)):
 test_data = []
 for i in range(1, 4):
     NN = generate_conv_NN(31, [3], (2, 2), 1, (1, 1))
+	# Compile the neural network with the parameters given in the example notebook
     NN.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'] )
     NN.fit(conv_input, output, epochs=i)
     res = test_model(NN, conv_test_input, one_hot[30000:])
