@@ -383,7 +383,7 @@ def add_data_y(prev_sq,sq,data_y):
         return data_y
     data_y.append(curr_y)
     return data_y
-
+#generate training dataset for ML_agent
 def generate_dataset():
     dataset_x = []
     dataset_y = []
@@ -397,6 +397,7 @@ def generate_dataset():
         trial +=1
     return dataset_x, dataset_y
 
+#generate training dataset for ML_agent_inference
 def generate_dataset_inference():
     dataset_x = []
     dataset_y = []
