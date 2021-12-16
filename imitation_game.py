@@ -79,7 +79,6 @@ class Cell:
         return False
 
 #generate knowledge embeded with cell class
-
 def generate_knowledge(grid,start,end,revealed = False):
     cell_list = []
     rows = len(grid)
@@ -486,7 +485,9 @@ def run_ML_agent(NN, grid, start, end, has_four_way_vision = False):
     complete_path = [start]
     prev_sq = start
     sq = start
+    cell_count = 0
     while sq != end:
+        cell_count += 1
 		#Use predict to generate the probability of 4 directions, the agent will move toward the direction with higest probability
         next_move = predict_direction(prev_sq, sq, curr_knowledge, has_four_way_vision)
         x, y = next_move
@@ -518,9 +519,9 @@ def run_ML_agent(NN, grid, start, end, has_four_way_vision = False):
                 curr_knowledge = infering(y,x,curr_knowledge,grid)
         prev_sq = sq
         sq = next_move
-    return complete_path
+    return [complete_path, cell_count]
 
-def predict_direction(prev_sq, sq, curr_knowledge,has_four_way_vision = False):
+def predict_direction(NN, prev_sq, sq, curr_knowledge,has_four_way_vision = False):
     #the predict return probabilities for direction down, up, left, right
     if has_four_way_vision:
         input_x = add_data_x(curr_knowledge,[],prev_sq)
@@ -546,7 +547,26 @@ def predict_direction(prev_sq, sq, curr_knowledge,has_four_way_vision = False):
             best_direction = direction
     return best_direction
 
-
+#compute average cell_count for ML_agent in 100 new grids
+def test_ML_agent(NN,has_four_way_vision,original_agent = False):
+    start = (0,0)
+    end = (30,30)
+    trial = 0
+    avg_count_original = 0
+    while trial < 100:
+        print("running trial {}".format(trial))
+        grid = generate_gridworld(31, 31, 0.3,start,end)
+        test = run_ML_agent(NN, grid, start, end)
+        if original_agent:
+            if has_four_way_vision:
+                original = algorithmA(grid, start, end, [], [], has_four_way_vision)
+            else:
+                original = inference(grid, start, end, [], [])
+            avg_count_original = original/100
+    avg_count_ML = test[1]/100
+    return [avg_count_ML, avg_count_original]
+    
+#test
 outs = {'down': 0, 'up': 1, 'left': 2, 'right': 3}
 conv_outs = list(map(lambda x: outs[x], data_agent_1[1]))
 # Convert output data to one-hot encoded form
@@ -582,7 +602,6 @@ for i in range(30000, len(data_agent_1[0])):
             r.append(int(val))
         inp.append(r)
     conv_test_input.append(inp)
-
 test_data = []
 for i in range(1, 4):
     NN = generate_conv_NN(31, [3], (2, 2), 1, (1, 1))
