@@ -351,13 +351,6 @@ def add_data_x_inference(curr_knowledge,data_x,prev_sq):
 	# Store the appropriate data for each square in the grid
     for y in range(dim):
         for x in range(dim):
-            #if curr_knowledge[y][x].visited == False:
-            #    curr_x.append(curr_knowledge[y][x].blocked)
-            #else:
-            #    x_value = (curr_knowledge[y][x].c * 10000 + curr_knowledge[y][x].b * 1000
-            #               + curr_knowledge[y][x].e * 100 + curr_knowledge[y][x].h * 10
-            #               + curr_knowledge[y][x].blocked)
-            #    curr_x.append(x_value)
             curr_x[0].append(curr_knowledge[y][x].c)
             curr_x[1].append(curr_knowledge[y][x].b)
             curr_x[2].append(curr_knowledge[y][x].e)
@@ -365,7 +358,6 @@ def add_data_x_inference(curr_knowledge,data_x,prev_sq):
             curr_x[4].append(curr_knowledge[y][x].blocked)
     # Note the agent's current location
     curr_x[4][agent_sq] = 9
-    
 	# One-hot encode all of the data using the to_categorical() function from Tensorflow
     # The first parameter indicates the data to be encoded, and the second the number of categories
     # The values must be integers from 0 to the number of categories
@@ -375,7 +367,6 @@ def add_data_x_inference(curr_knowledge,data_x,prev_sq):
     encoded_data.append(list(map(lambda x: 9 if x == 9999 else x, curr_x[2])))
     encoded_data.append(list(map(lambda x: 9 if x == 9999 else x, curr_x[3])))
     encoded_data.append(list(map(lambda x: 3 if x == 9 else x, curr_x[4])))
-
     data_x.append(encoded_data)
     return data_x
 
@@ -400,7 +391,7 @@ def generate_dataset():
     start = (0,0)
     end = (30,30)
     trial = 0
-    while trial < 300:
+    while trial < 1000:
         print("running trial {}".format(trial))
         grid = generate_gridworld(31, 31, 0.3,start,end)
         agent1 = algorithmA(grid, start, end, dataset_x, dataset_y, has_four_way_vision = True)
@@ -413,52 +404,12 @@ def generate_dataset_inference():
     start = (0,0)
     end = (30,30)
     trial = 0
-    while trial < 300:
+    while trial < 1000:
         print("running trial {}".format(trial))
         grid = generate_gridworld(31, 31, 0.3,start,end)
         agent3 = inference(grid, start, end, dataset_x, dataset_y)
         trial +=1
     return dataset_x, dataset_y
-
-#export data  agent 3      
-#data_agent3_1 = generate_dataset_inference()
-#file = open('data_agent3_1.p', 'wb')
-#pickle.dump(data_agent3_1, file)
-#file.close()
-
-#export data agent 1
-#data_agent1_1 = generate_dataset()
-#file = open('data_agent1_1.p', 'wb')
-#pickle.dump(data_agent1_1, file)
-#file.close()
-
-#import data
-file = open('data_agent1_1.p', 'rb')
-data_agent_1 = pickle.load(file)
-data_agent_1 = [data_agent_1[0], data_agent_1[1]]
-file.close()          
-
-file = open('data_agent3_1.p', 'rb')
-data_agent_3 = pickle.load(file)
-data_agent_3 = [data_agent_3[0], data_agent_3[1]]
-file.close() 
-
-"""test dataset"""
-#start = (0,0)
-#end = (2,2)
-#grid = generate_gridworld(3,3,.3,start,end)
-#dataset_x = []
-#dataset_y = []
-#agent1 = algorithmA(grid, start, end, dataset_x, dataset_y, has_four_way_vision = True)        
-
-
-"""test dataset_inference"""
-#start = (0,0)
-#end = (100,100)
-#grid = generate_gridworld(101,101,.3,start,end)
-#dataset_x = []
-#dataset_y = []
-#agent3 = inference(grid, start, end, dataset_x, dataset_y)
 
 # Based on provided example notebook (https://colab.research.google.com/drive/11qqoQfeUiPtYF0feAKxdUHZCEuAnL_4H?usp=sharing)		 
 def generate_dense_NN(dim, layers, num_datapoints):
@@ -525,63 +476,58 @@ def test_model(NN, input, output):
         if j == k:
             num_correct += 1
     return num_correct
-		
-def run_ML_agent_1(NN, grid, start, end):
+
+#if has_four_way_vision = True, mimic agent1; if has_four_way_vision = False, mimic agent3
+def run_ML_agent(NN, grid, start, end, has_four_way_vision = False):
     # The assumed state of the gridworld at any point in time. For some questions, the current knowledge is unknown at the start
     curr_knowledge = generate_knowledge(grid,start,end)
     # If the grid is considered known to the robot, operate on that known grid
 	# Else, the robot assumes a completely unblocked gridworld and will have to discover it as it moves
-    complete_path = [(0,0)]
-    prev_sq = (0,0)
-    sq = (0,0)
-    is_broken = False
-    curr_sq = start
-    while True:
+    complete_path = [start]
+    prev_sq = start
+    sq = start
+    while sq != end:
 		#Use predict to generate the probability of 4 directions, the agent will move toward the direction with higest probability
-        next_move = predict_direction(prev_sq, sq, curr_knowledge)
+        next_move = predict_direction(prev_sq, sq, curr_knowledge, has_four_way_vision)
+        x, y = next_move
 			# If blocked, rerun A* and restart loop
         if grid[y][x] == 1:
-                # If the robot can only see squares in its direction of movement, update its current knowledge of the grid to include this blocked square
+            # if 
             if not has_four_way_vision:
                curr_knowledge[y][x].blocked = 1
-            shortest_path = A_star(curr_knowledge, prev_sq, end)   
-            if not shortest_path:
-                return False
-            is_broken = True
-            cell_count += shortest_path[1]
-            data_y = add_data_y(prev_sq,sq,data_y)
-            break
+               x1, y1 = prev_sq
+               curr_knowledge = infering(y,x,curr_knowledge,grid)
+            continue
 			# If new square unblocked, update curr_knowledge. Loop will restart and move to next square on presumed shortest path
         else:
-           if sq != complete_path[-1]:
+            if sq != complete_path[-1]:
                 complete_path.append(sq)
-           curr_knowledge[y][x].blocked = 0
-                # If the robot can see in all compass directions, update squares adjacent to its current position
-           if has_four_way_vision:
-                if x != 0:
-                    curr_knowledge[y][x - 1].blocked = grid[y][x - 1]
-                if x < len(curr_knowledge[0]) - 1:
-                    curr_knowledge[y][x + 1].blocked = grid[y][x + 1]
-                if y != 0:
-                    curr_knowledge[y - 1][x].blocked = grid[y - 1][x]
-                if y < len(curr_knowledge) - 1:
-                    curr_knowledge[y + 1][x].blocked = grid[y + 1][x]
-                if is_path_blocked(curr_knowledge, shortest_path):
-                     shortest_path = A_star(curr_knowledge, sq, end)
-                     data_y = add_data_y(prev_sq,sq,data_y)
-                     prev_sq = sq
-                     is_broken = True
-                     break
-                prev_sq = sq
-                if not is_broken:
-                     break
-        is_broken = False
-    return [complete_path, cell_count,data_x,data_y]
+            curr_knowledge[y][x].blocked = 0
+            curr_knowledge[y][x].visted = True
+            # If the robot can see in all compass directions, update squares adjacent to its current position
+            if has_four_way_vision:
+               if x != 0:
+                   curr_knowledge[y][x - 1].blocked = grid[y][x - 1]
+               if x < len(curr_knowledge[0]) - 1:
+                   curr_knowledge[y][x + 1].blocked = grid[y][x + 1]
+               if y != 0:
+                   curr_knowledge[y - 1][x].blocked = grid[y - 1][x]
+               if y < len(curr_knowledge) - 1:
+                   curr_knowledge[y + 1][x].blocked = grid[y + 1][x]
+            elif curr_knowledge[y][x].h != 0:
+                curr_knowledge = infering(y,x,curr_knowledge,grid)
+        prev_sq = sq
+        sq = next_move
+    return complete_path
 
-def predict_direction(prev_sq, sq, curr_knowledge):
+def predict_direction(prev_sq, sq, curr_knowledge,has_four_way_vision = False):
     #the predict return probabilities for direction down, up, left, right
-    possible_move = NN.predict(curr_knowledge)
-    dim = len(curr_knowledge)
+    if has_four_way_vision:
+        input_x = add_data_x(curr_knowledge,[],prev_sq)
+    else:
+        input_x = add_data_x_inference(curr_knowledge,[],prev_sq)
+    #use trained model NN to generate probility for 4 directions given the current_knowledge
+    possible_move = NN.predict(input_x)
     x = sq[0]
     y = sq[1]
     neighbors = curr_knowledge.find_neighbors()
@@ -593,11 +539,12 @@ def predict_direction(prev_sq, sq, curr_knowledge):
         #remove invalid direction when it bumps into a known block, backward, or across the border
         if curr_knowledge[y1][x1].blocked == 1 or direction not in neighbors or direction == prev_sq:
             candidates.pop(direction, None)
+    #after droping invalid directions, find the one with highest probability
     for direction, probability in candidates.items():
         if probability >= max_prob:
             max_prob = probability
             best_direction = direction
-    return direction
+    return best_direction
 
 
 outs = {'down': 0, 'up': 1, 'left': 2, 'right': 3}
@@ -646,43 +593,3 @@ for i in range(1, 4):
     test_data.append(res)
 print(test_data)
 
-#test_data = []
-#for i in range(1, 4):
-#    NN = generate_dense_NN(31, [5], 1)
-#    NN.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'] )
-#    NN.fit(input, output, epochs=i)
-#    res = test_model(NN, data_agent_1[0][30000:], one_hot[30000:])
-#    test_data.append(res)
-#print(test_data)
-
-
-#conv_outs = list(map(lambda x: outs[x], data_agent_3[1]))
-#one_hot = tf.keras.utils.to_categorical(conv_outs, 4).astype(int)
-#one_hot = [[int(arr[0]), int(arr[1]), int(arr[2]), int(arr[3])] for arr in one_hot]
-#input = []
-#for inp in data_agent_3[0]:
-#    flattened_inp = []
-#    for i, arr in enumerate(inp):
-#        if i < 4:
-#            encoded = tf.keras.utils.to_categorical(arr, 10)
-#        else:
-#            encoded = tf.keras.utils.to_categorical(arr, 4)
-#        for arr in encoded:
-#            for j in range(len(arr)):
-#                arr[j] = int(arr[j])		
-#        for val in encoded:
-#            flattened_inp.append(val)
-#    input.append(flattened_inp)
-#input = input
-#output = one_hot[:35000]
-
-#test_data = []
-#for i in range(1, 4):
-#    NN = generate_dense_NN(31, (15), 5)
-#    NN.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'] )
-#    NN.fit(input[:35000], output, epochs=i)
-#    res = test_model(NN, input[35000:], one_hot[35000:])
-#    test_data.append(res)
-#print(res)
-# Predict outputs for given inputs
-#print(dense_NN.predict([data_agent2_1[0][0]]))
